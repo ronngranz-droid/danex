@@ -1,6 +1,13 @@
 import type { SolveMode, SolveResult, UsageStats } from '../types/solver.types';
 
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api/v1';
+  }
+  return (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export class SolverApiClient {
   static async checkHealth(): Promise<boolean> {
