@@ -42,14 +42,76 @@ function extractOptions(text: string): { options: OptionItem[]; cleanQuestion: s
   return { options, cleanQuestion };
 }
 
-export async function onRequestPost({ request }: { request: Request }) {
+export async function onRequestPost({ request, env }: { request: Request; env?: Record<string, string> }) {
   try {
     const body = await request.json() as any;
     const prompt = body?.prompt || '';
     const mode = body?.mode || 'QUICK';
+    const apiKey = body?.apiKey || env?.GEMINI_API_KEY || (typeof process !== 'undefined' ? (process.env as any)?.GEMINI_API_KEY : undefined);
 
     const subject = detectSubject(prompt);
     const { options, cleanQuestion } = extractOptions(prompt);
+
+    // If API Key is present, call Google Gemini API directly!
+    if (apiKey) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const systemPrompt = `Anda adalah DaneX AI Academic Engine. Jawablah pertanyaan akademik ini secara akurat, singkat, dan tepat. 
+Format keluaran HARUS berupa JSON valid dengan struktur:
+{
+  "shortAnswer": "Jawaban singkat langsung atau pilihan huruf jika pilihan ganda (contoh: 'C. Mitokondria' atau 'x = 2 atau x = 3')",
+  "answer": "Jawaban lengkap",
+  "answerOption": "A / B / C / D / E (opsional jika pilihan ganda)",
+  "explanation": "Penjelasan konsep secara jelas dan padat",
+  "latex": "Formula LaTeX jika matematika/fisika/kimia (opsional)",
+  "steps": ["Langkah 1", "Langkah 2"]
+}`;
+
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: `${systemPrompt}\n\nSoal: ${prompt}` }]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2
+            }
+          })
+        });
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json() as any;
+          const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            return new Response(JSON.stringify({
+              id: crypto.randomUUID(),
+              questionExtracted: cleanQuestion || prompt,
+              subject,
+              questionType: options.length > 0 ? 'MULTIPLE_CHOICE' : 'STRUCTURED_ESSAY',
+              options,
+              answer: parsed.answer || parsed.shortAnswer,
+              shortAnswer: parsed.shortAnswer || parsed.answer,
+              answerOption: parsed.answerOption,
+              explanation: parsed.explanation || '',
+              latex: parsed.latex,
+              steps: parsed.steps || [],
+              confidence: 0.99,
+              timestamp: Date.now(),
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini API call error, falling back to local academic engine:', geminiErr);
+      }
+    }
 
     let answer = '';
     let shortAnswer = '';
