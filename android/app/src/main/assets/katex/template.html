@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="katex.min.css">
+    <script src="katex.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 6px 8px;
+            font-size: 16px;
+            background-color: transparent;
+            color: #0F172A;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        body.dark {
+            color: #F8FAFC;
+        }
+        #math-container {
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="math-container"></div>
+    <script>
+        function renderLatex(latex, isDark) {
+            if (isDark) {
+                document.body.classList.add('dark');
+            } else {
+                document.body.classList.remove('dark');
+            }
+            try {
+                katex.render(latex, document.getElementById('math-container'), {
+                    displayMode: true,
+                    throwOnError: false
+                });
+            } catch (e) {
+                document.getElementById('math-container').innerText = latex;
+            }
+        }
+    </script>
+</body>
+</html>

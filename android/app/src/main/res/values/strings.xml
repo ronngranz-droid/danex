@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DaneX</string>
+    <string name="app_tagline">Select. Scan. Solve.</string>
+    <string name="onboarding_title_1">Select &amp; Ask Instantly</string>
+    <string name="onboarding_desc_1">Highlight any question on your screen or share text directly to DaneX for instant answers.</string>
+    <string name="onboarding_title_2">Precision Region Scan</string>
+    <string name="onboarding_desc_2">Drag a rectangular box over any question. Release to solve with on-device OCR speed.</string>
+    <string name="onboarding_title_3">Deep Understanding</string>
+    <string name="onboarding_desc_3">Structured solutions for Math, Physics, Chemistry, Programming, and Academic subjects.</string>
+    <string name="get_started">Get Started</string>
+    <string name="next">Next</string>
+    <string name="skip">Skip</string>
+    <string name="home_title">DaneX</string>
+    <string name="home_subtitle">Universal Study Assistant</string>
+    <string name="cta_scan">Scan Question</string>
+    <string name="cta_ask">Ask DaneX</string>
+    <string name="cta_paste">Paste from Clipboard</string>
+    <string name="recent_solutions">Recent Solutions</string>
+    <string name="settings">Settings</string>
+</resources>
