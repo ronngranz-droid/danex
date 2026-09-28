@@ -14,6 +14,7 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 import type { SolveMode, SolveResult, SolveStatus } from '../../../shared/types/solver.types';
 import { SolverApiClient } from '../../../shared/api-client/solver.client';
@@ -712,6 +713,28 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
                   <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
                 </button>
               </div>
+            </div>
+
+            {/* Download Native APK Section */}
+            <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-3xl p-4 text-white shadow-md shadow-sky-500/20 space-y-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-100 block">
+                  Aplikasi Native Android
+                </span>
+                <div className="text-sm font-bold mt-0.5">Download DaneX APK</div>
+                <p className="text-[11px] text-sky-100 mt-1">
+                  Pasang di HP Android untuk mengaktifkan menu <b>"Tanya DaneX"</b> saat blok teks di Chrome/PDF.
+                </p>
+              </div>
+
+              <a
+                href="./danex.apk"
+                download="danex.apk"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-white text-sky-600 rounded-2xl font-bold text-xs shadow hover:bg-sky-50 transition active:scale-95 min-h-[44px]"
+              >
+                <Download className="w-4 h-4" />
+                <span>Unduh File APK (v1.0.0)</span>
+              </a>
             </div>
 
             {/* About DaneX */}
