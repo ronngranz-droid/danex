@@ -1,39 +1,23 @@
 import { useState, useEffect } from 'react';
 import {
   Sparkles,
-  Monitor,
-  Smartphone,
   History as HistoryIcon,
 } from 'lucide-react';
-import type { SolveMode, SolveResult, SolveStatus, UsageStats } from './shared/types/solver.types';
+import type { SolveMode, SolveResult, SolveStatus } from './shared/types/solver.types';
 import { SolverApiClient } from './shared/api-client/solver.client';
-import { DesktopDashboard } from './modules/solver/components/DesktopDashboard';
 import { MobileSimulator } from './modules/solver/components/MobileSimulator';
 import { HistoryDrawer } from './modules/solver/components/HistoryDrawer';
 import { PwaInstallBanner } from './modules/common/components/PwaInstallBanner';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'danex_web_history';
 
-function isMobileClient(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.innerWidth < 768 ||
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-    window.matchMedia('(display-mode: standalone)').matches
-  );
-}
-
 export function App() {
-  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>(() => {
-    return isMobileClient() ? 'mobile' : 'desktop';
-  });
   const [inputText, setInputText] = useState('');
   const [solveMode, setSolveMode] = useState<SolveMode>('QUICK');
   const [status, setStatus] = useState<SolveStatus>('IDLE');
   const [result, setResult] = useState<SolveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Local storage history
@@ -54,12 +38,10 @@ export function App() {
     }
   }, [history]);
 
-  // Check health and usage
+  // Check health
   const refreshBackendData = async () => {
     const healthy = await SolverApiClient.checkHealth();
     setIsBackendOnline(healthy);
-    const stats = await SolverApiClient.getUsageStats();
-    setUsageStats(stats);
   };
 
   useEffect(() => {
@@ -83,7 +65,7 @@ export function App() {
         inputText.trim(),
         solveMode,
         'id',
-        viewMode === 'desktop' ? 'DESKTOP_WEB' : 'MOBILE_SIMULATOR'
+        'MOBILE_SIMULATOR'
       );
 
       setStatus('VERIFYING');
@@ -166,33 +148,6 @@ export function App() {
             </div>
           </div>
 
-          {/* Center Viewport Switcher (Only on Desktop/Laptops) */}
-          <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/60">
-            <button
-              onClick={() => setViewMode('desktop')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-                viewMode === 'desktop'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              <span>Tampilan Desktop</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('mobile')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-                viewMode === 'mobile'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Simulasi HP Android</span>
-            </button>
-          </div>
-
           {/* Right Actions: Status + History Drawer Toggle */}
           <div className="flex items-center gap-2.5">
             <div
@@ -226,7 +181,7 @@ export function App() {
 
       {/* ── Preset Questions Chips Bar ── */}
       <div className="bg-white/60 border-b border-slate-200/60 py-2.5 px-4 overflow-x-auto">
-        <div className="max-w-7xl mx-auto flex items-center gap-2">
+        <div className="max-w-md mx-auto flex items-center gap-2">
           <span className="text-[11px] font-bold text-slate-400 flex-shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-sky-500" /> Contoh Soal Cepat:
           </span>
@@ -234,61 +189,45 @@ export function App() {
             onClick={() => loadPreset('Organel sel manakah yang berfungsi menghasilkan energi utama berupa ATP? A. Nukleus B. Ribosom C. Mitokondria D. Lisosom E. Badan Golgi')}
             className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
           >
-            🧬 Biologi (MCQ Sel)
+            🧬 Biologi (MCQ)
           </button>
           <button
             onClick={() => loadPreset('Tentukan akar-akar persamaan kuadrat x^2 - 5x + 6 = 0')}
             className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
           >
-            📐 Matematika (Kuadrat & LaTeX)
+            📐 Matematika (LaTeX)
           </button>
           <button
             onClick={() => loadPreset('Setarakan persamaan reaksi kimia pembakaran hidrogen: H2 + O2 -> H2O')}
             className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
           >
-            🧪 Kimia (Reaksi Setara)
+            🧪 Kimia
           </button>
           <button
             onClick={() => loadPreset('Buat fungsi Python untuk menghitung total elemen array/list numerik')}
             className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
           >
-            💻 Pemrograman (Python)
+            💻 Python
           </button>
         </div>
       </div>
 
-      {/* ── Main Content Body ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
-        {viewMode === 'desktop' ? (
-          <DesktopDashboard
-            inputText={inputText}
-            setInputText={setInputText}
-            solveMode={solveMode}
-            setSolveMode={setSolveMode}
-            status={status}
-            result={result}
-            error={error}
-            onSolveText={handleSolveText}
-            onSolveVision={handleSolveVision}
-            usageStats={usageStats}
-            onRefreshStats={refreshBackendData}
-          />
-        ) : (
-          <MobileSimulator
-            inputText={inputText}
-            setInputText={setInputText}
-            solveMode={solveMode}
-            setSolveMode={setSolveMode}
-            status={status}
-            result={result}
-            error={error}
-            onSolveText={handleSolveText}
-            onSolveVision={handleSolveVision}
-            history={history}
-            onSelectHistory={(item) => setResult(item)}
-            onClearHistory={() => setHistory([])}
-          />
-        )}
+      {/* ── Main Content Body: Dedicated Pure Mobile App View ── */}
+      <main className="flex-1 w-full max-w-md mx-auto p-0 sm:p-4 flex flex-col justify-center">
+        <MobileSimulator
+          inputText={inputText}
+          setInputText={setInputText}
+          solveMode={solveMode}
+          setSolveMode={setSolveMode}
+          status={status}
+          result={result}
+          error={error}
+          onSolveText={handleSolveText}
+          onSolveVision={handleSolveVision}
+          history={history}
+          onSelectHistory={(item) => setResult(item)}
+          onClearHistory={() => setHistory([])}
+        />
       </main>
 
       {/* ── Footer ── */}
