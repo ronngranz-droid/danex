@@ -1,8 +1,4 @@
 import { useState, useEffect } from 'react';
-import {
-  Sparkles,
-  History as HistoryIcon,
-} from 'lucide-react';
 import type { SolveMode, SolveResult, SolveStatus } from './shared/types/solver.types';
 import { SolverApiClient } from './shared/api-client/solver.client';
 import { MobileSimulator } from './modules/solver/components/MobileSimulator';
@@ -17,7 +13,6 @@ export function App() {
   const [status, setStatus] = useState<SolveStatus>('IDLE');
   const [result, setResult] = useState<SolveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Local storage history
@@ -40,8 +35,7 @@ export function App() {
 
   // Check health
   const refreshBackendData = async () => {
-    const healthy = await SolverApiClient.checkHealth();
-    setIsBackendOnline(healthy);
+    await SolverApiClient.checkHealth();
   };
 
   useEffect(() => {
@@ -116,104 +110,17 @@ export function App() {
     }
   };
 
-  const loadPreset = (text: string) => {
-    setInputText(text);
-  };
-
   return (
-    <div className="min-h-screen bg-[#F4F6FA] text-slate-800 flex flex-col selection:bg-blue-100 selection:text-blue-900 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#F4F6FA] text-slate-800 flex flex-col justify-center items-center relative overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
       {/* ── PWA Quick Install Banner ── */}
       <PwaInstallBanner />
 
-      {/* ── Soft Ambient Pastel Illustration Shapes (matching Behance presentation) ── */}
-      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-sky-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
+      {/* ── Soft Ambient Background ── */}
+      <div className="fixed -top-40 -right-40 w-[600px] h-[600px] bg-sky-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="fixed top-1/2 -left-40 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* ── Top Navigation Bar ── */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-sky-500 flex items-center justify-center font-black text-sm text-white shadow-sm shadow-sky-500/20">
-              DX
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-slate-900">DaneX</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                  Study Assistant
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Select. Scan. Solve.</p>
-            </div>
-          </div>
-
-          {/* Right Actions: Status + History Drawer Toggle */}
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                isBackendOnline
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                  : 'bg-red-50 text-red-600 border-red-200'
-              }`}
-            >
-              <div
-                className={`w-2 h-2 rounded-full ${isBackendOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}
-              />
-              <span className="hidden sm:inline">{isBackendOnline ? 'Server Online' : 'Offline'}</span>
-            </div>
-
-            <button
-              onClick={() => setIsHistoryOpen(true)}
-              className="relative p-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition"
-              title="Buka Riwayat Soal"
-            >
-              <HistoryIcon className="w-4 h-4" />
-              {history.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-[10px] font-bold text-white flex items-center justify-center">
-                  {history.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Preset Questions Chips Bar ── */}
-      <div className="bg-white/60 border-b border-slate-200/60 py-2.5 px-4 overflow-x-auto">
-        <div className="max-w-md mx-auto flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-400 flex-shrink-0 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-sky-500" /> Contoh Soal Cepat:
-          </span>
-          <button
-            onClick={() => loadPreset('Organel sel manakah yang berfungsi menghasilkan energi utama berupa ATP? A. Nukleus B. Ribosom C. Mitokondria D. Lisosom E. Badan Golgi')}
-            className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
-          >
-            🧬 Biologi (MCQ)
-          </button>
-          <button
-            onClick={() => loadPreset('Tentukan akar-akar persamaan kuadrat x^2 - 5x + 6 = 0')}
-            className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
-          >
-            📐 Matematika (LaTeX)
-          </button>
-          <button
-            onClick={() => loadPreset('Setarakan persamaan reaksi kimia pembakaran hidrogen: H2 + O2 -> H2O')}
-            className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
-          >
-            🧪 Kimia
-          </button>
-          <button
-            onClick={() => loadPreset('Buat fungsi Python untuk menghitung total elemen array/list numerik')}
-            className="text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 px-3 py-1 rounded-full border border-slate-200 shadow-2xs transition flex-shrink-0"
-          >
-            💻 Python
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main Content Body: Dedicated Pure Mobile App View ── */}
-      <main className="flex-1 w-full max-w-md mx-auto p-0 sm:p-4 flex flex-col justify-center">
+      {/* ── Dedicated Pure Mobile Native App ── */}
+      <main className="w-full max-w-md min-h-screen sm:min-h-0 flex flex-col justify-center p-0 sm:py-6">
         <MobileSimulator
           inputText={inputText}
           setInputText={setInputText}
@@ -229,11 +136,6 @@ export function App() {
           onClearHistory={() => setHistory([])}
         />
       </main>
-
-      {/* ── Footer ── */}
-      <footer className="py-4 border-t border-slate-200/80 text-center text-xs text-slate-400">
-        DaneX Universal Study Assistant • Clean Native Mobile & Desktop Edition
-      </footer>
 
       {/* ── History Drawer ── */}
       <HistoryDrawer
