@@ -112,12 +112,12 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
   const activeResult = viewingDetail || result;
 
   return (
-    <div className="flex flex-col items-center justify-center py-2">
-      {/* ── Android Phone Bezel Frame (Clean Minimal Light Chassis) ── */}
-      <div className="relative w-[375px] h-[750px] bg-[#F4F6FA] border-[10px] border-white rounded-[50px] shadow-2xl overflow-hidden flex flex-col ring-1 ring-slate-200/80">
+    <div className="flex flex-col items-center justify-center w-full min-h-[calc(100vh-5rem)] sm:min-h-0 sm:py-2">
+      {/* ── Android Phone Chassis (Edge-to-Edge on Mobile, Elegant Bezel on Laptop/Desktop) ── */}
+      <div className="relative w-full max-w-md sm:w-[375px] min-h-[85vh] sm:h-[750px] bg-[#F4F6FA] sm:border-[10px] sm:border-white sm:rounded-[50px] rounded-2xl sm:shadow-2xl shadow-none overflow-hidden flex flex-col sm:ring-1 sm:ring-slate-200/80 border border-slate-200/60 sm:border-white">
         
-        {/* Top Status Bar */}
-        <div className="h-8 bg-[#F4F6FA] flex items-center justify-between px-7 pt-2 text-[11px] text-slate-600 select-none z-20 font-medium">
+        {/* Top Status Bar (Only visible in desktop simulator mode, hidden on real phone) */}
+        <div className="hidden sm:flex h-8 bg-[#F4F6FA] items-center justify-between px-7 pt-2 text-[11px] text-slate-600 select-none z-20 font-medium">
           <span>09:41</span>
           <div className="w-16 h-3.5 bg-slate-200/80 rounded-full flex items-center justify-center">
             <div className="w-2 h-2 bg-slate-400 rounded-full" />

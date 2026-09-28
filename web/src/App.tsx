@@ -14,8 +14,19 @@ import { PwaInstallBanner } from './modules/common/components/PwaInstallBanner';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'danex_web_history';
 
+function isMobileClient(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.innerWidth < 768 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.matchMedia('(display-mode: standalone)').matches
+  );
+}
+
 export function App() {
-  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>(() => {
+    return isMobileClient() ? 'mobile' : 'desktop';
+  });
   const [inputText, setInputText] = useState('');
   const [solveMode, setSolveMode] = useState<SolveMode>('QUICK');
   const [status, setStatus] = useState<SolveStatus>('IDLE');
@@ -155,8 +166,8 @@ export function App() {
             </div>
           </div>
 
-          {/* Center Viewport Switcher (Desktop vs Mobile Phone) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/60">
+          {/* Center Viewport Switcher (Only on Desktop/Laptops) */}
+          <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/60">
             <button
               onClick={() => setViewMode('desktop')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
@@ -166,8 +177,7 @@ export function App() {
               }`}
             >
               <Monitor className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Tampilan Desktop</span>
-              <span className="sm:hidden">Desktop</span>
+              <span>Tampilan Desktop</span>
             </button>
 
             <button
@@ -179,8 +189,7 @@ export function App() {
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Simulasi HP Android</span>
-              <span className="sm:hidden">HP</span>
+              <span>Simulasi HP Android</span>
             </button>
           </div>
 
