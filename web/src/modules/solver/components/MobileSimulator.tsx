@@ -1,29 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Camera,
-  Crop,
-  History,
-  Settings,
-  Home,
+  History as HistoryIcon,
+  Settings as SettingsIcon,
+  Home as HomeIcon,
   Send,
   Sparkles,
   ClipboardPaste,
-  ChevronLeft,
-  Copy,
-  Check,
+  ChevronRight,
   Zap,
   BookOpen,
+  Image as ImageIcon,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import type { SolveMode, SolveResult, SolveStatus } from '../../../shared/types/solver.types';
 import { SolverApiClient } from '../../../shared/api-client/solver.client';
-import { KatexRenderer } from './KatexRenderer';
-import { CodeSnippetViewer } from './CodeSnippetViewer';
-import { OptionListSelector } from './OptionListSelector';
 import { WebcamCaptureModal } from './WebcamCaptureModal';
 import { ScreenCropModal } from './ScreenCropModal';
 import { HeadsUpNotification } from './HeadsUpNotification';
 import { TextSelectionPlayground } from './TextSelectionPlayground';
-import { AlertCircle } from 'lucide-react';
+import { ResultBottomSheet } from './ResultBottomSheet';
 
 interface MobileSimulatorProps {
   inputText: string;
@@ -57,26 +55,36 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'settings'>('home');
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
-  const [viewingDetail, setViewingDetail] = useState<SolveResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<SolveResult | null>(null);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // Heads-up Notification State for "Mark Teks -> Ask -> Notifikasi Muncul"
+  // Heads-up notification state
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifResult, setNotifResult] = useState<SolveResult | null>(null);
   const [isNotifLoading, setIsNotifLoading] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // Settings Toggles State
+  // Settings Toggles
   const [toggleNotif, setToggleNotif] = useState(true);
-  const [toggleOcr, setToggleOcr] = useState(true);
-  const [toggleSecure, setToggleSecure] = useState(true);
-  const [toggleFloating, setToggleFloating] = useState(true);
+  const [toggleAutoCopy, setToggleAutoCopy] = useState(false);
+  const [toggleHaptic, setToggleHaptic] = useState(true);
 
-  const handleAskSelection = async (selectedText: string) => {
-    setIsNotifLoading(true);
+  // Hidden file input for photo upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isSolving =
+    status === 'READING' ||
+    status === 'UNDERSTANDING' ||
+    status === 'SOLVING' ||
+    status === 'VERIFYING';
+
+  const handleAskSelection = async (text: string) => {
     setIsNotifOpen(true);
+    setIsNotifLoading(true);
+    setNotifResult(null);
+
     try {
       const res = await SolverApiClient.solveText(
-        selectedText,
+        text,
         solveMode,
         'id',
         'ANDROID_PROCESS_TEXT_NOTIFICATION'
@@ -88,12 +96,6 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
     }
   };
 
-  const isSolving =
-    status === 'READING' ||
-    status === 'UNDERSTANDING' ||
-    status === 'SOLVING' ||
-    status === 'VERIFYING';
-
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
@@ -103,523 +105,487 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
     }
   };
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        onSolveVision(base64, 'Pindai dan selesaikan soal dalam gambar galeri ini');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
-  const activeResult = viewingDetail || result;
+  const openResultDetail = (item: SolveResult) => {
+    setSelectedResult(item);
+    setIsBottomSheetOpen(true);
+    if (onSelectHistory) {
+      onSelectHistory(item);
+    }
+  };
+
+  // When parent `result` updates, auto-open bottom sheet
+  React.useEffect(() => {
+    if (result && status === 'SUCCESS') {
+      setSelectedResult(result);
+      setIsBottomSheetOpen(true);
+    }
+  }, [result, status]);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full min-h-[calc(100vh-5rem)] sm:min-h-0 sm:py-2">
-      {/* ── Android Phone Chassis (Edge-to-Edge on Mobile, Elegant Bezel on Laptop/Desktop) ── */}
-      <div className="relative w-full max-w-md sm:w-[375px] min-h-[85vh] sm:h-[750px] bg-[#F4F6FA] sm:border-[10px] sm:border-white sm:rounded-[50px] rounded-2xl sm:shadow-2xl shadow-none overflow-hidden flex flex-col sm:ring-1 sm:ring-slate-200/80 border border-slate-200/60 sm:border-white">
-        
-        {/* Top Status Bar (Only visible in desktop simulator mode, hidden on real phone) */}
-        <div className="hidden sm:flex h-8 bg-[#F4F6FA] items-center justify-between px-7 pt-2 text-[11px] text-slate-600 select-none z-20 font-medium">
-          <span>09:41</span>
-          <div className="w-16 h-3.5 bg-slate-200/80 rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-slate-400 rounded-full" />
+    <div className="w-full flex flex-col min-h-screen bg-[#F4F6FA] text-slate-800 relative selection:bg-blue-100">
+      
+      {/* ── Native Minimal Mobile Header (Safe Area Top) ── */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-2xs pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-sky-500 flex items-center justify-center font-black text-xs text-white shadow-xs shadow-sky-500/20">
+            DX
           </div>
-          <div className="flex items-center gap-1.5 font-mono text-[10px]">
-            <span>5G</span>
-            <span>100%</span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-sm tracking-tight text-slate-900">DaneX</span>
+              <span className="text-[9px] font-bold text-sky-600 bg-sky-50 border border-sky-100 px-1.5 py-0.2 rounded-md">
+                AI Solver
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* ── Screen Viewport Content ── */}
-        <div className="flex-1 bg-[#F4F6FA] overflow-y-auto relative flex flex-col">
-          
-          {/* Heads-up System Notification (Android Popup on "Ask") */}
-          {isNotifOpen && (
-            <HeadsUpNotification
-              result={notifResult}
-              isLoading={isNotifLoading}
-              onClose={() => setIsNotifOpen(false)}
-              onOpenDetail={(item) => {
-                setViewingDetail(item);
-                setActiveTab('home');
-              }}
-            />
-          )}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-0.8 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Online</span>
+          </div>
+        </div>
+      </header>
 
-          {/* Top Header */}
-          <div className="px-5 py-3.5 bg-[#F4F6FA]/90 backdrop-blur-xs flex items-center justify-between sticky top-0 z-10">
-            {activeResult && activeTab === 'home' ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setViewingDetail(null)}
-                  className="p-1 -ml-1 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-white transition"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h1 className="text-base font-bold text-sky-500">Hasil Solusi</h1>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between w-full">
-                <h1 className="text-base font-bold text-sky-500 tracking-tight">
-                  {activeTab === 'home' ? 'DaneX' : activeTab === 'history' ? 'Riwayat' : 'Settings'}
-                </h1>
-                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
-                  Online
+      {/* ── Heads-up Notification (Meluncur Turun pada Ask Teks) ── */}
+      {isNotifOpen && (
+        <HeadsUpNotification
+          result={notifResult}
+          isLoading={isNotifLoading}
+          onClose={() => setIsNotifOpen(false)}
+          onOpenDetail={(item) => openResultDetail(item)}
+        />
+      )}
+
+      {/* ── Main Scrollable Body ── */}
+      <main className="flex-1 px-4 py-3 pb-24 overflow-y-auto space-y-4 max-w-lg mx-auto w-full">
+        
+        {/* Error Banner */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-xs text-red-600 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════
+            TAB 1: BERANDA (HOME)
+           ══════════════════════════════════════════════ */}
+        {activeTab === 'home' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            
+            {/* 1. Mode Selector Chips */}
+            <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-100 shadow-2xs">
+              <button
+                onClick={() => setSolveMode('QUICK')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition min-h-[44px] ${
+                  solveMode === 'QUICK'
+                    ? 'bg-sky-500 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Mode Instan (Quick)</span>
+              </button>
+
+              <button
+                onClick={() => setSolveMode('LEARN')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition min-h-[44px] ${
+                  solveMode === 'LEARN'
+                    ? 'bg-sky-500 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Mode Belajar (Step)</span>
+              </button>
+            </div>
+
+            {/* 2. Interactive "Select & Ask" Native Playground */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-bold text-slate-800">Tandai Teks (Select & Ask)</h2>
+                    <p className="text-[10px] text-slate-400">Blok teks biru lalu tekan tombol Ask</p>
+                  </div>
+                </div>
+
+                <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
+                  TikTok Flow
                 </span>
               </div>
-            )}
-          </div>
 
-          {/* ── Tab Content ── */}
-          <div className="flex-1 px-4 py-2 space-y-4">
-            
-            {/* ════ TAB: BERANDA (HOME) ════ */}
-            {activeTab === 'home' && (
-              <>
-                {error && (
-                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs text-red-600">
-                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
+              {/* Text Selection Box */}
+              <TextSelectionPlayground onAskSelection={handleAskSelection} />
+            </div>
 
-                {isSolving ? (
-                  <div className="py-20 text-center space-y-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto animate-pulse">
-                      <Sparkles className="w-7 h-7 text-blue-500 animate-spin" style={{ animationDuration: '3s' }} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-slate-800">{status}...</p>
-                      <p className="text-[11px] text-slate-400">Sedang menyelesaikan soal akademis...</p>
-                    </div>
-                  </div>
-                ) : activeResult ? (
-                  <div className="space-y-3 pb-16 animate-in fade-in duration-200">
-                    
-                    {/* Solution Card */}
-                    <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100">
-                          {activeResult.subject}
-                        </span>
-                        <button
-                          onClick={() => handleCopy(`${activeResult.shortAnswer || activeResult.answer}\n\n${activeResult.explanation}`)}
-                          className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 transition"
-                        >
-                          {copied ? <Check className="w-3 h-3 text-blue-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
-                          <span>{copied ? 'Tersalin' : 'Salin'}</span>
-                        </button>
-                      </div>
+            {/* 3. Direct Question Input Box */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Ketik / Tempel Soal</span>
+                <button
+                  onClick={handlePaste}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100/70 px-2.5 py-1 rounded-xl transition min-h-[36px]"
+                >
+                  <ClipboardPaste className="w-3.5 h-3.5" />
+                  <span>Tempel</span>
+                </button>
+              </div>
 
-                      {/* Question Preview */}
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-700 font-medium leading-relaxed">
-                        {activeResult.questionExtracted}
-                      </div>
+              <div className="relative">
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="Ketik soal matematika, sains, coding, atau pilihan ganda di sini..."
+                  rows={3}
+                  className="w-full text-xs p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-800 placeholder-slate-400 resize-none transition"
+                />
 
-                      {/* Option List (if MCQ) */}
-                      <OptionListSelector options={activeResult.options} answerOption={activeResult.answerOption} />
-
-                      {/* Verified Answer Highlight */}
-                      <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-2xl space-y-1">
-                        <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Jawaban</div>
-                        <div className="text-sm font-bold text-slate-900 leading-snug">
-                          {activeResult.shortAnswer || activeResult.answer}
-                        </div>
-                      </div>
-
-                      {/* KaTeX Math Formula */}
-                      {activeResult.latex && (
-                        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Formula LaTeX</div>
-                          <KatexRenderer latex={activeResult.latex} />
-                        </div>
-                      )}
-
-                      {/* Code Snippet */}
-                      {activeResult.codeSnippet && <CodeSnippetViewer codeSnippet={activeResult.codeSnippet} />}
-
-                      {/* Explanation */}
-                      {activeResult.explanation && (
-                        <div className="space-y-1 pt-1 border-t border-slate-100">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Penjelasan</div>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            {activeResult.explanation}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Steps (Learn mode) */}
-                      {activeResult.steps && activeResult.steps.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Langkah Penyelesaian ({activeResult.steps.length})
-                          </div>
-                          <div className="space-y-1.5">
-                            {activeResult.steps.map((step, idx) => (
-                              <div key={idx} className="flex items-start gap-2 text-xs text-slate-600">
-                                <span className="w-4 h-4 rounded-full bg-blue-50 text-blue-600 font-bold text-[9px] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  {idx + 1}
-                                </span>
-                                <span className="flex-1 leading-relaxed">{step}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => setViewingDetail(null)}
-                      className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold text-xs rounded-2xl shadow-xs hover:bg-slate-50 transition"
-                    >
-                      ← Kembali ke Input
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* ── Feature Highlight: Mark Teks Biru & Muncul Notifikasi ── */}
-                    <TextSelectionPlayground onAskSelection={handleAskSelection} />
-
-                    {/* ── Group 1: Quick Action Cards (Foto Soal & Tangkap Layar) ── */}
-                    <div className="bg-white rounded-3xl p-1.5 shadow-sm border border-slate-100 divide-y divide-slate-100">
-                      
-                      {/* Action 1: Foto Soal */}
-                      <div
-                        onClick={() => setIsWebcamOpen(true)}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 cursor-pointer transition"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 shadow-2xs">
-                            <Camera className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-800">Foto Soal</div>
-                            <div className="text-[10px] text-slate-400">Pindai buku atau tugas</div>
-                          </div>
-                        </div>
-                        <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                      </div>
-
-                      {/* Action 2: Tangkap Layar */}
-                      <div
-                        onClick={() => setIsCropModalOpen(true)}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 cursor-pointer transition"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 shadow-2xs">
-                            <Crop className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-800">Tangkap Layar</div>
-                            <div className="text-[10px] text-slate-400">Tarik kotak seleksi</div>
-                          </div>
-                        </div>
-                        <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                      </div>
-                    </div>
-
-                    {/* ── Group 2: Input Soal (Behance Community section style) ── */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
-                        INPUT PERTANYAAN
-                      </div>
-
-                      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
-                        {/* Mode switchers */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800">Teks / Soal</span>
-                          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-[10px]">
-                            <button
-                              onClick={() => setSolveMode('QUICK')}
-                              className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-                                solveMode === 'QUICK' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                              }`}
-                            >
-                              <Zap className="w-2.5 h-2.5 inline mr-0.5" /> Quick
-                            </button>
-                            <button
-                              onClick={() => setSolveMode('LEARN')}
-                              className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-                                solveMode === 'LEARN' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                              }`}
-                            >
-                              <BookOpen className="w-2.5 h-2.5 inline mr-0.5" /> Learn
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Textarea */}
-                        <textarea
-                          rows={3}
-                          value={inputText}
-                          onChange={(e) => setInputText(e.target.value)}
-                          placeholder="Tempel atau ketik soal di sini..."
-                          className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white resize-none leading-relaxed transition"
-                        />
-
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handlePaste}
-                            className="flex items-center gap-1 px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-600 shadow-2xs transition"
-                          >
-                            <ClipboardPaste className="w-3 h-3 text-slate-500" />
-                            Tempel
-                          </button>
-                          <button
-                            onClick={onSolveText}
-                            disabled={!inputText.trim() || isSolving}
-                            className="flex-1 py-2 px-3 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-98 disabled:opacity-50"
-                          >
-                            <Send className="w-3 h-3" />
-                            Selesaikan Soal
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── Group 3: Recent History preview ── */}
-                    {history.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
-                          <span>RIWAYAT TERBARU</span>
-                          <button
-                            onClick={() => setActiveTab('history')}
-                            className="text-sky-500 hover:underline capitalize"
-                          >
-                            Lihat Semua
-                          </button>
-                        </div>
-                        <div className="bg-white rounded-3xl p-1.5 shadow-sm border border-slate-100 divide-y divide-slate-100">
-                          {history.slice(0, 2).map((item) => (
-                            <div
-                              key={item.id}
-                              onClick={() => {
-                                setViewingDetail(item);
-                                onSelectHistory(item);
-                              }}
-                              className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 cursor-pointer transition"
-                            >
-                              <div className="space-y-0.5 flex-1 pr-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                    {item.subject}
-                                  </span>
-                                  <span className="text-xs font-semibold text-slate-800 truncate">
-                                    {item.shortAnswer || item.answer}
-                                  </span>
-                                </div>
-                                <p className="text-slate-400 line-clamp-1 text-[11px]">{item.questionExtracted}</p>
-                              </div>
-                              <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                {inputText.trim() && (
+                  <button
+                    onClick={onSolveText}
+                    disabled={isSolving}
+                    className="mt-2 w-full py-2.5 bg-sky-500 hover:bg-sky-600 active:scale-98 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition min-h-[44px]"
+                  >
+                    {isSolving ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Selesaikan Sekarang</span>
+                      </>
                     )}
-                  </>
+                  </button>
                 )}
-              </>
-            )}
+              </div>
+            </div>
 
-            {/* ════ TAB: RIWAYAT (HISTORY) ════ */}
-            {activeTab === 'history' && (
-              <div className="space-y-3 pb-16">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    SEMUA RIWAYAT ({history.length})
-                  </span>
-                  {history.length > 0 && (
-                    <button
-                      onClick={onClearHistory}
-                      className="text-[11px] text-red-500 font-semibold hover:underline"
-                    >
-                      Hapus Semua
-                    </button>
-                  )}
+            {/* 4. Quick Action Cards (Kamera & Galeri) */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => setIsWebcamOpen(true)}
+                className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:border-sky-200 transition flex items-center gap-2.5 text-left active:scale-98 min-h-[56px]"
+              >
+                <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                  <Camera className="w-4 h-4" />
                 </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Foto Soal</div>
+                  <div className="text-[10px] text-slate-400">Scan via kamera</div>
+                </div>
+              </button>
 
-                {history.length === 0 ? (
-                  <div className="text-center py-20 bg-white rounded-3xl p-6 border border-slate-100 text-slate-400 text-xs">
-                    Belum ada riwayat soal yang tersimpan.
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-3xl p-1.5 shadow-sm border border-slate-100 divide-y divide-slate-100">
-                    {history.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => {
-                          setViewingDetail(item);
-                          onSelectHistory(item);
-                          setActiveTab('home');
-                        }}
-                        className="flex items-center justify-between p-3.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition"
-                      >
-                        <div className="space-y-1 flex-1 pr-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                              {item.subject}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="text-slate-700 font-medium line-clamp-2 text-xs">{item.questionExtracted}</p>
-                          <div className="text-blue-600 font-bold text-xs">{item.shortAnswer || item.answer}</div>
-                        </div>
-                        <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:border-sky-200 transition flex items-center gap-2.5 text-left active:scale-98 min-h-[56px]"
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Unggah Gambar</div>
+                  <div className="text-[10px] text-slate-400">Pilih dari galeri</div>
+                </div>
+              </button>
+            </div>
+
+            {/* 5. Skeleton Loader during solving */}
+            {isSolving && (
+              <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded-md w-1/3" />
+                <div className="h-10 bg-sky-100/50 rounded-2xl w-full" />
+                <div className="space-y-1.5">
+                  <div className="h-3 bg-slate-100 rounded-md w-full" />
+                  <div className="h-3 bg-slate-100 rounded-md w-4/5" />
+                </div>
               </div>
             )}
 
-            {/* ════ TAB: PENGATURAN (SETTINGS - Behance Right Screen Replica) ════ */}
-            {activeTab === 'settings' && (
-              <div className="space-y-4 pb-16">
-                
-                {/* Section 1: Navigation Links with >> */}
-                <div className="bg-white rounded-3xl p-2 shadow-sm border border-slate-100 divide-y divide-slate-100">
-                  <div className="flex items-center justify-between py-3 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer rounded-2xl transition">
-                    <span>Edit profil</span>
-                    <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer rounded-2xl transition">
-                    <span>Change Password</span>
-                    <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer rounded-2xl transition">
-                    <span>Change language</span>
-                    <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer rounded-2xl transition">
-                    <span>Change location</span>
-                    <span className="text-slate-300 font-semibold text-xs tracking-tighter">&gt;&gt;</span>
-                  </div>
+            {/* 6. Recent History Excerpt Card */}
+            {history.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-bold text-slate-700">Riwayat Terakhir</span>
+                  <button
+                    onClick={() => setActiveTab('history')}
+                    className="text-[11px] font-semibold text-sky-600 hover:text-sky-700"
+                  >
+                    Lihat Semua
+                  </button>
                 </div>
 
-                {/* Section 2: Toggle Switches (Replicating the Behance Switch Card) */}
-                <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
-                  
-                  {/* Toggle 1 */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600 font-medium">Receive notification</span>
-                    <button
-                      onClick={() => setToggleNotif(!toggleNotif)}
-                      className={`w-11 h-6 rounded-full transition-colors flex items-center p-0.5 ${
-                        toggleNotif ? 'bg-sky-400 justify-end' : 'bg-slate-200 justify-start'
-                      }`}
+                <div className="space-y-2">
+                  {history.slice(0, 3).map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => openResultDetail(item)}
+                      className="bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs flex items-center justify-between cursor-pointer hover:border-sky-100 transition active:scale-98 min-h-[52px]"
                     >
-                      <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                    </button>
-                  </div>
-
-                  {/* Toggle 2 */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-xs text-slate-600 font-medium">Receive newsletters</span>
-                    <button
-                      onClick={() => setToggleOcr(!toggleOcr)}
-                      className={`w-11 h-6 rounded-full transition-colors flex items-center p-0.5 ${
-                        toggleOcr ? 'bg-sky-400 justify-end' : 'bg-slate-200 justify-start'
-                      }`}
-                    >
-                      <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                    </button>
-                  </div>
-
-                  {/* Toggle 3 */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-xs text-slate-600 font-medium">Receive special offers</span>
-                    <button
-                      onClick={() => setToggleSecure(!toggleSecure)}
-                      className={`w-11 h-6 rounded-full transition-colors flex items-center p-0.5 ${
-                        toggleSecure ? 'bg-sky-400 justify-end' : 'bg-slate-200 justify-start'
-                      }`}
-                    >
-                      <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                    </button>
-                  </div>
-
-                  {/* Toggle 4 */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-xs text-slate-600 font-medium">Receive Updates</span>
-                    <button
-                      onClick={() => setToggleFloating(!toggleFloating)}
-                      className={`w-11 h-6 rounded-full transition-colors flex items-center p-0.5 ${
-                        toggleFloating ? 'bg-sky-400 justify-end' : 'bg-slate-200 justify-start'
-                      }`}
-                    >
-                      <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                    </button>
-                  </div>
+                      <div className="flex-1 pr-2">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[9px] uppercase font-bold text-slate-400">
+                            {item.subject}
+                          </span>
+                          <span className="text-[9px] text-slate-300">•</span>
+                          <span className="text-[9px] font-bold text-sky-600">
+                            {item.shortAnswer}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium line-clamp-1">
+                          {item.questionExtracted}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300" />
+                    </div>
+                  ))}
                 </div>
+              </div>
+            )}
 
-                {/* About DaneX */}
-                <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 text-center space-y-1">
-                  <div className="text-xs font-bold text-slate-800">DaneX v1.0.0</div>
-                  <p className="text-[11px] text-slate-400">Universal Study Assistant • Clean Native Edition</p>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════
+            TAB 2: RIWAYAT (HISTORY)
+           ══════════════════════════════════════════════ */}
+        {activeTab === 'history' && (
+          <div className="space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-sm font-bold text-slate-800">Riwayat Soal ({history.length})</h2>
+              {history.length > 0 && (
+                <button
+                  onClick={onClearHistory}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 px-2.5 py-1 rounded-xl transition min-h-[36px]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus Semua</span>
+                </button>
+              )}
+            </div>
+
+            {history.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-2xs space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto">
+                  <HistoryIcon className="w-6 h-6" />
                 </div>
+                <div className="text-xs font-bold text-slate-700">Belum Ada Riwayat</div>
+                <p className="text-[11px] text-slate-400">
+                  Tandai teks atau scan kamera untuk menyimpan solusi di sini.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => openResultDetail(item)}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:border-sky-100 transition active:scale-98 cursor-pointer space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 uppercase">
+                        {item.subject}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-medium text-slate-800 line-clamp-2">
+                      {item.questionExtracted}
+                    </p>
+
+                    <div className="text-xs font-bold text-slate-900 bg-slate-50 p-2 rounded-xl flex items-center justify-between">
+                      <span className="line-clamp-1">{item.shortAnswer}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
+        )}
 
-          {/* ── Floating "DX" Quick Trigger ── */}
+        {/* ══════════════════════════════════════════════
+            TAB 3: PENGATURAN (SETTINGS)
+           ══════════════════════════════════════════════ */}
+        {activeTab === 'settings' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <h2 className="text-sm font-bold text-slate-800 px-1">Pengaturan Aplikasi</h2>
+
+            {/* AI Gateway Section */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Mesin AI Solver
+              </span>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Google Gemini Flash</div>
+                  <div className="text-[10px] text-slate-400">Multimodal Text & Vision OCR</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                  Aktif
+                </span>
+              </div>
+            </div>
+
+            {/* Toggles Native iOS/Android Style */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Preferensi Tampilan
+              </span>
+
+              {/* Toggle 1: Heads-up Notification */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-slate-700 font-semibold block">Notifikasi Pop-up (Heads-up)</span>
+                  <span className="text-[10px] text-slate-400">Banner meluncur turun saat klik "Ask"</span>
+                </div>
+                <button
+                  onClick={() => setToggleNotif(!toggleNotif)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    toggleNotif ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+
+              {/* Toggle 2: Auto-Copy */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div>
+                  <span className="text-xs text-slate-700 font-semibold block">Auto-Copy Hasil Jawaban</span>
+                  <span className="text-[10px] text-slate-400">Otomatis salin jawaban singkat ke clipboard</span>
+                </div>
+                <button
+                  onClick={() => setToggleAutoCopy(!toggleAutoCopy)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    toggleAutoCopy ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+
+              {/* Toggle 3: Haptic Feedback */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div>
+                  <span className="text-xs text-slate-700 font-semibold block">Getar / Haptic Touch</span>
+                  <span className="text-[10px] text-slate-400">Respon getar saat tombol ditekan</span>
+                </div>
+                <button
+                  onClick={() => setToggleHaptic(!toggleHaptic)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    toggleHaptic ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+            </div>
+
+            {/* About DaneX */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 text-center space-y-1">
+              <div className="text-xs font-bold text-slate-800">DaneX Study Assistant v1.0.0</div>
+              <p className="text-[10px] text-slate-400">Clean Native Mobile Architecture • PWA & APK</p>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* Hidden File Input for Gallery */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleGalleryUpload}
+        accept="image/*"
+        className="hidden"
+      />
+
+      {/* ── Native Bottom Navigation Bar with Elevated Center Scan Action ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 max-w-lg mx-auto pb-[env(safe-area-inset-bottom,0px)] shadow-lg">
+        <div className="h-16 flex items-center justify-around px-2 relative">
+          
+          {/* Tab 1: Home */}
           <button
-            onClick={() => setIsCropModalOpen(true)}
-            className="absolute bottom-20 right-4 w-11 h-11 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/30 flex items-center justify-center font-bold text-xs transition active:scale-95 z-30"
-            title="Floating Quick Capture Trigger"
+            onClick={() => {
+              setActiveTab('home');
+              setSelectedResult(null);
+            }}
+            className={`flex flex-col items-center justify-center flex-1 min-h-[48px] transition ${
+              activeTab === 'home' ? 'text-sky-500 font-bold' : 'text-slate-400 hover:text-slate-600'
+            }`}
           >
-            DX
+            <HomeIcon className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Home</span>
           </button>
 
-          {/* ── Bottom Navigation Bar (Clean Minimal Behance style) ── */}
-          <div className="h-16 bg-white border-t border-slate-100 flex items-center justify-around px-4 sticky bottom-0 z-20 text-[10px]">
-            
-            <button
-              onClick={() => {
-                setActiveTab('home');
-                setViewingDetail(null);
-              }}
-              className={`flex flex-col items-center gap-1 transition ${
-                activeTab === 'home' ? 'text-slate-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Home</span>
-            </button>
-
+          {/* Tab 2: Center Elevated Scan Action (Hero FAB) */}
+          <div className="relative -top-5 flex flex-col items-center">
             <button
               onClick={() => setIsWebcamOpen(true)}
-              className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition"
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-lg shadow-sky-500/30 flex items-center justify-center transition active:scale-90 border-4 border-white"
+              aria-label="Scan Kamera Soal"
             >
-              <Camera className="w-4 h-4" />
-              <span>Camera</span>
+              <Camera className="w-6 h-6" />
             </button>
-
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex flex-col items-center gap-1 transition ${
-                activeTab === 'history' ? 'text-slate-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <History className="w-4 h-4" />
-              <span>History</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex flex-col items-center gap-1 transition ${
-                activeTab === 'settings' ? 'text-slate-800 font-semibold' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Setting</span>
-            </button>
+            <span className="text-[10px] font-bold text-slate-700 mt-1">Scan</span>
           </div>
 
-        </div>
-      </div>
+          {/* Tab 3: History */}
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex flex-col items-center justify-center flex-1 min-h-[48px] transition ${
+              activeTab === 'history' ? 'text-sky-500 font-bold' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <HistoryIcon className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">History</span>
+          </button>
 
-      {/* Modals */}
+          {/* Tab 4: Settings */}
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center justify-center flex-1 min-h-[48px] transition ${
+              activeTab === 'settings' ? 'text-sky-500 font-bold' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <SettingsIcon className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Settings</span>
+          </button>
+
+        </div>
+      </nav>
+
+      {/* ── Native Result Bottom Sheet ── */}
+      <ResultBottomSheet
+        result={selectedResult}
+        isOpen={isBottomSheetOpen}
+        onClose={() => setIsBottomSheetOpen(false)}
+      />
+
+      {/* ── Camera & Crop Modals ── */}
       <WebcamCaptureModal
         isOpen={isWebcamOpen}
         onClose={() => setIsWebcamOpen(false)}
@@ -630,6 +596,7 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
         onClose={() => setIsCropModalOpen(false)}
         onCropComplete={(base64) => onSolveVision(base64)}
       />
+
     </div>
   );
 };
