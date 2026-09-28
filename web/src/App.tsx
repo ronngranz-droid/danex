@@ -10,6 +10,7 @@ import { SolverApiClient } from './shared/api-client/solver.client';
 import { DesktopDashboard } from './modules/solver/components/DesktopDashboard';
 import { MobileSimulator } from './modules/solver/components/MobileSimulator';
 import { HistoryDrawer } from './modules/solver/components/HistoryDrawer';
+import { PwaInstallBanner } from './modules/common/components/PwaInstallBanner';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'danex_web_history';
 
@@ -128,6 +129,9 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#F4F6FA] text-slate-800 flex flex-col selection:bg-blue-100 selection:text-blue-900 relative overflow-x-hidden">
+      {/* ── PWA Quick Install Banner ── */}
+      <PwaInstallBanner />
+
       {/* ── Soft Ambient Pastel Illustration Shapes (matching Behance presentation) ── */}
       <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-sky-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-3xl pointer-events-none -z-10" />

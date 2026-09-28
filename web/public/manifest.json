@@ -1,0 +1,37 @@
+{
+  "name": "DaneX — Academic AI Solver",
+  "short_name": "DaneX",
+  "description": "Instant Text Selection & Multimodal Academic AI Solver",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "48x48 72x72 96x96 128x128 192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Select & Solve",
+      "url": "/#solver",
+      "description": "Mark text to solve academic problems"
+    },
+    {
+      "name": "History",
+      "url": "/#history",
+      "description": "View past verified solutions"
+    }
+  ],
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ]
+}
