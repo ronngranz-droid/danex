@@ -41,6 +41,18 @@ export function App() {
   useEffect(() => {
     refreshBackendData();
     const interval = setInterval(refreshBackendData, 10000);
+
+    // Auto-fill and solve if launched via ?q= (e.g. from Android Text Selection)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q && q.trim()) {
+        setInputText(q.trim());
+      }
+    } catch {
+      // ignore
+    }
+
     return () => clearInterval(interval);
   }, []);
 
