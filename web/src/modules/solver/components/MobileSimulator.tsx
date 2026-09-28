@@ -136,34 +136,101 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
     }
   }, [result, status]);
 
+  // Live Clipboard state
+  const [clipboardText, setClipboardText] = useState('24 cm');
+  const [isAutoSolveOn, setIsAutoSolveOn] = useState(true);
+  const [isNotifEnabled, setIsNotifEnabled] = useState(true);
+  const [isAutoReplaceOn, setIsAutoReplaceOn] = useState(true);
+
+  const refreshClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) setClipboardText(text);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSolveClipboardNow = () => {
+    if (!clipboardText.trim()) return;
+    setInputText(clipboardText);
+    handleAskSelection(clipboardText);
+  };
+
+  const handleTriggerDemoMCQ = () => {
+    setIsNotifOpen(true);
+    setIsNotifLoading(true);
+    setTimeout(() => {
+      setNotifResult({
+        id: crypto.randomUUID(),
+        questionExtracted: 'Organel sel manakah yang berfungsi menghasilkan energi utama berupa ATP?',
+        subject: 'biology',
+        questionType: 'multiple_choice',
+        shortAnswer: 'C. Mitokondria',
+        answer: 'Mitokondria (Pilihan C) adalah organel sel yang menghasilkan ATP.',
+        explanation: 'Mitokondria dikenal sebagai powerhouse of the cell tempat respirasi seluler.',
+        options: [],
+        steps: ['Identifikasi organel sel penghasil energi.', 'Mitokondria menjalankan siklus Krebs.', 'Jawaban C.'],
+        solveMode: 'QUICK',
+        inputSource: 'DEMO',
+        language: 'id',
+        confidence: 0.99,
+        warnings: [],
+        timestamp: Date.now(),
+      });
+      setIsNotifLoading(false);
+    }, 300);
+  };
+
+  const handleTriggerDemoMath = () => {
+    setIsNotifOpen(true);
+    setIsNotifLoading(true);
+    setTimeout(() => {
+      setNotifResult({
+        id: crypto.randomUUID(),
+        questionExtracted: 'Tentukan akar persamaan x^2 - 5x + 6 = 0',
+        subject: 'mathematics',
+        questionType: 'calculation',
+        shortAnswer: 'x = 2 atau x = 3',
+        answer: 'Akar persamaan adalah x = 2 atau x = 3.',
+        explanation: 'Difaktorkan menjadi (x - 2)(x - 3) = 0.',
+        latex: 'x^2 - 5x + 6 = (x - 2)(x - 3) = 0 \\implies x_1 = 2, \\; x_2 = 3',
+        options: [],
+        steps: ['Bentuk umum ax^2+bx+c=0', 'Faktorkan (x-2)(x-3)=0', 'Diperoleh x=2 atau x=3'],
+        solveMode: 'QUICK',
+        inputSource: 'DEMO',
+        language: 'id',
+        confidence: 0.99,
+        warnings: [],
+        timestamp: Date.now(),
+      });
+      setIsNotifLoading(false);
+    }, 300);
+  };
+
   return (
     <div className="w-full flex flex-col min-h-screen bg-[#F4F6FA] text-slate-800 relative selection:bg-blue-100">
       
-      {/* ── Native Minimal Mobile Header (Safe Area Top) ── */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-2xs pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-sky-500 flex items-center justify-center font-black text-xs text-white shadow-xs shadow-sky-500/20">
-            DX
+      {/* ── Native Mobile Header matching Reference Screenshot ── */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3.5 flex items-center justify-between shadow-2xs pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-sky-50 flex items-center justify-center text-sky-500 shadow-2xs">
+            <Sparkles className="w-4 h-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-sm tracking-tight text-slate-900">DaneX</span>
-              <span className="text-[9px] font-bold text-sky-600 bg-sky-50 border border-sky-100 px-1.5 py-0.2 rounded-md">
-                AI Solver
-              </span>
-            </div>
-          </div>
+          <span className="font-extrabold text-base tracking-tight text-slate-900">DaneX AI</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-0.8 rounded-full">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Online</span>
+          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-2xs">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Auto-Solve ON</span>
           </div>
         </div>
       </header>
 
-      {/* ── Heads-up Notification (Meluncur Turun pada Ask Teks) ── */}
+      {/* ── Heads-up Notification (Meluncur Turun pada Ask Teks / Demo) ── */}
       {isNotifOpen && (
         <HeadsUpNotification
           result={notifResult}
@@ -174,7 +241,7 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
       )}
 
       {/* ── Main Scrollable Body ── */}
-      <main className="flex-1 px-4 py-3 pb-24 overflow-y-auto space-y-4 max-w-lg mx-auto w-full">
+      <main className="flex-1 px-4 py-3 pb-24 overflow-y-auto space-y-3.5 max-w-lg mx-auto w-full">
         
         {/* Error Banner */}
         {error && (
@@ -188,50 +255,157 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
             TAB 1: BERANDA (HOME)
            ══════════════════════════════════════════════ */}
         {activeTab === 'home' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="space-y-3.5 animate-in fade-in duration-200">
             
-            {/* 1. Mode Selector Chips */}
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-100 shadow-2xs">
-              <button
-                onClick={() => setSolveMode('QUICK')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition min-h-[44px] ${
-                  solveMode === 'QUICK'
-                    ? 'bg-sky-500 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Mode Instan (Quick)</span>
-              </button>
-
-              <button
-                onClick={() => setSolveMode('LEARN')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition min-h-[44px] ${
-                  solveMode === 'LEARN'
-                    ? 'bg-sky-500 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Mode Belajar (Step)</span>
-              </button>
-            </div>
-
-            {/* 2. Interactive "Select & Ask" Native Playground */}
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+            {/* ── CARD 1: Automation Toggles (Matching Reference Screenshot) ── */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100/90 space-y-4">
+              
+              {/* Toggle 1: Auto-Solve on Copy */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Sparkles className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="text-xs font-bold text-slate-800">Tandai Teks (Select & Ask)</h2>
-                    <p className="text-[10px] text-slate-400">Blok teks biru lalu tekan tombol Ask</p>
+                    <h3 className="text-xs font-bold text-slate-800">Auto-Solve on Copy</h3>
+                    <p className="text-[10px] text-slate-400">Memantau clipboard secara otomatis</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsAutoSolveOn(!isAutoSolveOn)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    isAutoSolveOn ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+
+              {/* Toggle 2: Notifikasi Jawaban Real-time */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div className="pl-10">
+                  <h3 className="text-xs font-bold text-slate-800">Notifikasi Jawaban Real-time</h3>
+                  <p className="text-[10px] text-slate-400">Menampilkan kunci opsi pilihan ganda langsung di notifikasi</p>
+                </div>
+
+                <button
+                  onClick={() => setIsNotifEnabled(!isNotifEnabled)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    isNotifEnabled ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+
+              {/* Toggle 3: Auto-Replace Clipboard dengan Jawaban */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div className="pl-10">
+                  <h3 className="text-xs font-bold text-slate-800">Auto-Replace Clipboard dengan Jawaban</h3>
+                  <p className="text-[10px] text-slate-400">Kunci jawaban langsung menggantikan teks di clipboard siap Paste</p>
+                </div>
+
+                <button
+                  onClick={() => setIsAutoReplaceOn(!isAutoReplaceOn)}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.8 min-h-[44px] min-w-[48px] ${
+                    isAutoReplaceOn ? 'bg-sky-500 justify-end' : 'bg-slate-200 justify-start'
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-xs" />
+                </button>
+              </div>
+
+            </div>
+
+            {/* ── CARD 2: Isi Clipboard Saat Ini (Matching Reference Screenshot) ── */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardPaste className="w-4 h-4 text-sky-500" />
+                  <span className="text-xs font-bold text-slate-800">Isi Clipboard Saat Ini</span>
+                </div>
+
+                <button
+                  onClick={refreshClipboard}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-xl transition min-h-[36px]"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {/* Live Clipboard Box */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-xs text-slate-800 font-medium min-h-[48px] flex items-center">
+                <span>{clipboardText || 'Clipboard kosong'}</span>
+              </div>
+
+              {/* Primary Solve Clipboard Button */}
+              <button
+                onClick={handleSolveClipboardNow}
+                disabled={isSolving}
+                className="w-full py-3 bg-sky-500 hover:bg-sky-600 active:scale-98 text-white rounded-2xl font-bold text-xs shadow-sm shadow-sky-500/20 flex items-center justify-center gap-2 transition min-h-[48px]"
+              >
+                {isSolving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Selesaikan Teks di Clipboard Sekarang</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* ── CARD 3: Uji Coba Notifikasi Real-time (Matching Reference Screenshot) ── */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100/90 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Uji Coba Notifikasi Real-time</h3>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Klik tombol di bawah untuk melihat bagaimana notifikasi kunci pilihan ganda dan matematika tampil di status bar Anda.
+              </p>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={handleTriggerDemoMCQ}
+                  className="w-full py-2.5 bg-sky-50 hover:bg-sky-100 active:scale-98 text-sky-700 rounded-2xl font-bold text-xs border border-sky-100/80 flex items-center justify-center gap-2 transition min-h-[44px]"
+                >
+                  <span>🔔</span>
+                  <span>Kirim Notifikasi Demo Pilihan Ganda</span>
+                </button>
+
+                <button
+                  onClick={handleTriggerDemoMath}
+                  className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 active:scale-98 text-indigo-700 rounded-2xl font-bold text-xs border border-indigo-100/80 flex items-center justify-center gap-2 transition min-h-[44px]"
+                >
+                  <span>📐</span>
+                  <span>Kirim Notifikasi Demo Matematika</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ── CARD 4: Simulasi Tandai Teks (Select & Ask) ── */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800">Simulasi Tandai Teks (Select & Ask)</h3>
+                    <p className="text-[10px] text-slate-400">Tandai/blok teks biru di bawah lalu tekan "Ask"</p>
                   </div>
                 </div>
 
                 <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
-                  TikTok Flow
+                  Android Feature
                 </span>
               </div>
 
@@ -435,7 +609,7 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
             {/* AI Gateway Section */}
             <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                Mesin AI Solver
+                Mesin AI & Mode Jawaban
               </span>
               
               <div className="flex items-center justify-between">
@@ -446,6 +620,42 @@ export const MobileSimulator: React.FC<MobileSimulatorProps> = ({
                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
                   Aktif
                 </span>
+              </div>
+
+              {/* Mode Selector */}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-700 font-semibold block mb-2">Mode Penyelesaian</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setSolveMode('QUICK')}
+                    className={`flex items-center gap-2 p-2.5 rounded-2xl border transition text-left min-h-[44px] ${
+                      solveMode === 'QUICK'
+                        ? 'bg-sky-50 border-sky-400 text-sky-700 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div>
+                      <div className="text-xs">Quick Solve</div>
+                      <div className="text-[9px] text-slate-400 font-normal">Kunci Opsi Singkat</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setSolveMode('LEARN')}
+                    className={`flex items-center gap-2 p-2.5 rounded-2xl border transition text-left min-h-[44px] ${
+                      solveMode === 'LEARN'
+                        ? 'bg-sky-50 border-sky-400 text-sky-700 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4 text-blue-500 shrink-0" />
+                    <div>
+                      <div className="text-xs">Learn Mode</div>
+                      <div className="text-[9px] text-slate-400 font-normal">Langkah & Penjelasan</div>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
 
